@@ -115,7 +115,13 @@ function buildComparison(station, forecastData) {
     return null;
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Match California local date (America/Los_Angeles)
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
   const daily = forecastData.daily;
   
   // Find index for today or closest date
