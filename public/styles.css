@@ -427,6 +427,261 @@ body {
   color: var(--text-main);
 }
 
+/* Wind & Spraying Card Enhancements */
+.wind-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wind-card .card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.wind-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.spray-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 9px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.spray-badge.optimal {
+  background: #e8f5e9;
+  color: #1b4332;
+  border-color: #a5d6a7;
+}
+
+.spray-badge.caution {
+  background: #fff8e1;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.spray-badge.unfavorable {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+/* Spray Diagnostics (Delta T, Drift Risk, Wet Bulb) */
+.spray-diagnostics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.spray-diag-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.diag-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.diag-val {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.diag-sub {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Actionable Advisory Box */
+.spray-advisory-box {
+  background: #f8faf9;
+  border-left: 3px solid var(--primary-light);
+  border-radius: 4px;
+  padding: 9px 11px;
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+.spray-advisory-box.optimal {
+  background: #f0fdf4;
+  border-left-color: #22c55e;
+  color: #166534;
+}
+
+.spray-advisory-box.caution {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+  color: #92400e;
+}
+
+.spray-advisory-box.unfavorable {
+  background: #fef2f2;
+  border-left-color: #ef4444;
+  color: #991b1b;
+}
+
+.spray-adv-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+/* Hourly Spray Window */
+.spray-forecast-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spray-fc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.spray-fc-title {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.spray-fc-legend {
+  display: flex;
+  gap: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.dot-opt {
+  background: #22c55e;
+}
+
+.dot.dot-ctn {
+  background: #f59e0b;
+}
+
+.dot.dot-unf {
+  background: #ef4444;
+}
+
+.spray-timeline {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.spray-timeline::-webkit-scrollbar {
+  height: 4px;
+}
+
+.spray-timeline::-webkit-scrollbar-thumb {
+  background: #d4ded9;
+  border-radius: 4px;
+}
+
+.spray-hour-pill {
+  flex: 0 0 auto;
+  min-width: 50px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.spray-hour-pill .pill-time {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.spray-hour-pill .pill-wind {
+  font-size: 11px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.spray-hour-pill.optimal {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.spray-hour-pill.optimal .pill-wind {
+  color: #166534;
+}
+
+.spray-hour-pill.caution {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.spray-hour-pill.caution .pill-wind {
+  color: #92400e;
+}
+
+.spray-hour-pill.unfavorable {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.spray-hour-pill.unfavorable .pill-wind {
+  color: #991b1b;
+}
+
 /* Agronomy Card Stats Row */
 .stats-row {
   display: grid;

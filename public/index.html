@@ -113,21 +113,66 @@
 
         <!-- Glanceable Metric Cards Grid -->
         <div class="cards-grid">
-          <!-- Wind Card -->
-          <div class="metric-card wind-card">
+          <!-- Wind & Spraying Card -->
+          <div class="metric-card wind-card" id="wind-spray-card">
             <div class="card-header">
-              <span class="card-icon">💨</span>
-              <span class="card-title">Wind & Spraying</span>
+              <div class="card-header-left">
+                <span class="card-icon">💨</span>
+                <span class="card-title">Wind & Spraying</span>
+              </div>
+              <span id="spray-status-badge" class="spray-badge">Analyzing...</span>
             </div>
             <div class="card-body">
-              <div class="primary-metric">
-                <span id="card-wind-speed" class="val">--</span>
-                <span class="unit">mph</span>
+              <div class="wind-main-row">
+                <div class="primary-metric">
+                  <span id="card-wind-speed" class="val">--</span>
+                  <span class="unit">mph</span>
+                </div>
+                <div class="secondary-info">
+                  <div>Gusts: <strong id="card-wind-gust">-- mph</strong></div>
+                  <div>Direction: <strong id="card-wind-dir">--</strong></div>
+                  <div>Peak Today: <strong id="card-peak-wind">-- mph</strong></div>
+                </div>
               </div>
-              <div class="secondary-info">
-                <div>Gusts: <strong id="card-wind-gust">-- mph</strong></div>
-                <div>Direction: <strong id="card-wind-dir">--</strong></div>
-                <div>Peak Today: <strong id="card-peak-wind">-- mph</strong></div>
+
+              <!-- Spray Specific Diagnostics (Delta T, Drift Risk, Wet Bulb) -->
+              <div class="spray-diagnostics">
+                <div class="spray-diag-item">
+                  <span class="diag-label">Delta T</span>
+                  <span id="card-delta-t" class="diag-val">--°F</span>
+                  <span class="diag-sub">Ideal 3.5–14°</span>
+                </div>
+                <div class="spray-diag-item">
+                  <span class="diag-label">Drift Risk</span>
+                  <span id="card-drift-risk" class="diag-val">--</span>
+                  <span class="diag-sub">Speed &lt; 9 mph</span>
+                </div>
+                <div class="spray-diag-item">
+                  <span class="diag-label">Wet Bulb</span>
+                  <span id="card-wet-bulb" class="diag-val">--°F</span>
+                  <span class="diag-sub">Evap base</span>
+                </div>
+              </div>
+
+              <!-- Actionable Advisory Callout -->
+              <div id="spray-advisory-box" class="spray-advisory-box">
+                <span class="spray-adv-icon">🚜</span>
+                <span id="spray-advisory-text">Evaluating field spraying window...</span>
+              </div>
+
+              <!-- Hourly Spray Window Forecast -->
+              <div class="spray-forecast-section">
+                <div class="spray-fc-header">
+                  <span class="spray-fc-title">Hourly Spray Window:</span>
+                  <div class="spray-fc-legend">
+                    <span class="legend-item"><span class="dot dot-opt"></span>Good</span>
+                    <span class="legend-item"><span class="dot dot-ctn"></span>Caution</span>
+                    <span class="legend-item"><span class="dot dot-unf"></span>Avoid</span>
+                  </div>
+                </div>
+                <div id="spray-timeline" class="spray-timeline">
+                  <!-- dynamic hourly pills injected by app.js -->
+                </div>
               </div>
             </div>
           </div>

@@ -112,6 +112,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("card-wind-dir").textContent = current.windDirection.value || current.maxWindDir.value;
     document.getElementById("card-peak-wind").textContent = `${current.dailyMaxWind.value} mph`;
 
+    // Render Spray Advisory
+    renderSprayAdvisory(data.sprayAdvisory, current);
+
     // Precipitation Card
     document.getElementById("card-daily-rain").textContent = current.dailyRain.value;
     document.getElementById("card-month-rain").textContent = `${current.monthPrecip.value} In`;
@@ -205,6 +208,68 @@ document.addEventListener("DOMContentLoaded", () => {
       el.className = `diff-cell ${isTemp ? "diff-negative" : "diff-negative"}`;
     } else {
       el.className = "diff-cell diff-neutral";
+    }
+  }
+
+  function renderSprayAdvisory(spray, current) {
+    if (!spray) return;
+
+    // Badge in card header
+    const badge = document.getElementById("spray-status-badge");
+    if (badge) {
+      badge.textContent = spray.headline || spray.status;
+      badge.className = `spray-badge ${spray.statusColor || "caution"}`;
+    }
+
+    // Diagnostics (Delta T, Drift Risk, Wet Bulb)
+    const deltaTElem = document.getElementById("card-delta-t");
+    if (deltaTElem) {
+      if (spray.deltaT !== null && !isNaN(spray.deltaT)) {
+        deltaTElem.textContent = `${spray.deltaT}°F`;
+      } else if (current && current.temp && current.wetBulb) {
+        const t = parseFloat(current.temp.value);
+        const wb = parseFloat(current.wetBulb.value);
+        if (!isNaN(t) && !isNaN(wb)) {
+          deltaTElem.textContent = `${(t - wb).toFixed(1)}°F`;
+        } else {
+          deltaTElem.textContent = "--";
+        }
+      } else {
+        deltaTElem.textContent = "--";
+      }
+    }
+
+    const driftRiskElem = document.getElementById("card-drift-risk");
+    if (driftRiskElem) {
+      driftRiskElem.textContent = spray.driftRisk || "Moderate";
+    }
+
+    const wetBulbElem = document.getElementById("card-wet-bulb");
+    if (wetBulbElem) {
+      wetBulbElem.textContent = current && current.wetBulb && current.wetBulb.value ? `${current.wetBulb.value}°F` : "--";
+    }
+
+    // Advisory Callout Box
+    const advBox = document.getElementById("spray-advisory-box");
+    const advText = document.getElementById("spray-advisory-text");
+    if (advBox && advText) {
+      advText.textContent = spray.advisoryText || "Check current winds before spraying.";
+      advBox.className = `spray-advisory-box ${spray.statusColor || "caution"}`;
+    }
+
+    // Hourly Timeline
+    const timeline = document.getElementById("spray-timeline");
+    if (timeline && spray.hourlyWindows && spray.hourlyWindows.length > 0) {
+      timeline.innerHTML = spray.hourlyWindows
+        .map((h) => {
+          return `
+          <div class="spray-hour-pill ${h.rating}">
+            <span class="pill-time">${h.timeLabel}</span>
+            <span class="pill-wind">${Math.round(h.windSpeed || 0)} mph</span>
+          </div>
+        `;
+        })
+        .join("");
     }
   }
 
@@ -335,6 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
           temp: { value: "54.7", unit: "°F" },
           humidity: { value: "95", unit: "%" },
           dewPoint: { value: "53.4", unit: "°F" },
+          wetBulb: { value: "53.8", unit: "°F" },
           batteryVoltage: { value: "13.0", unit: "V" },
           dailyMaxTemp: { value: "66.6", unit: "°F" },
           dailyMinTemp: { value: "53.9", unit: "°F" },
@@ -371,6 +437,28 @@ document.addEventListener("DOMContentLoaded", () => {
           { date: "Day 2", forecastMax: 63, forecastMin: 51, weather: { desc: "Fog / Marine layer", icon: "🌫️" } },
           { date: "Day 3", forecastMax: 61, forecastMin: 50, weather: { desc: "Partly cloudy", icon: "⛅" } },
           { date: "Day 4", forecastMax: 62, forecastMin: 52, weather: { desc: "Mainly clear", icon: "🌤️" } }
+        ]
+      },
+      sprayAdvisory: {
+        status: "CAUTION",
+        statusColor: "caution",
+        headline: "Inversion Risk (<3 mph)",
+        deltaT: 0.9,
+        driftRisk: "Inversion",
+        advisoryText: "Winds are currently under 3 mph (0.7 mph). Surface temperature inversion risk: suspended droplets can drift unpredictable distances. Delta T is low (0.9°F) indicating very slow evaporation.",
+        hourlyWindows: [
+          { timeLabel: "6 AM", windSpeed: 2.1, rainProb: 0, temp: 53, rating: "caution" },
+          { timeLabel: "7 AM", windSpeed: 3.5, rainProb: 0, temp: 55, rating: "optimal" },
+          { timeLabel: "8 AM", windSpeed: 5.2, rainProb: 0, temp: 58, rating: "optimal" },
+          { timeLabel: "9 AM", windSpeed: 6.8, rainProb: 0, temp: 61, rating: "optimal" },
+          { timeLabel: "10 AM", windSpeed: 8.5, rainProb: 0, temp: 63, rating: "optimal" },
+          { timeLabel: "11 AM", windSpeed: 10.2, rainProb: 0, temp: 65, rating: "caution" },
+          { timeLabel: "12 PM", windSpeed: 13.1, rainProb: 0, temp: 66, rating: "unfavorable" },
+          { timeLabel: "1 PM", windSpeed: 14.5, rainProb: 0, temp: 65, rating: "unfavorable" },
+          { timeLabel: "2 PM", windSpeed: 13.8, rainProb: 0, temp: 64, rating: "unfavorable" },
+          { timeLabel: "3 PM", windSpeed: 11.2, rainProb: 0, temp: 62, rating: "caution" },
+          { timeLabel: "4 PM", windSpeed: 8.0, rainProb: 0, temp: 60, rating: "optimal" },
+          { timeLabel: "5 PM", windSpeed: 5.4, rainProb: 0, temp: 58, rating: "optimal" }
         ]
       }
     });

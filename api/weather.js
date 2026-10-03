@@ -195,6 +195,121 @@ function generateComparisonSummary(tempDiff, windDiff, rainDiff) {
   return notes.join(" ");
 }
 
+function formatHourLabel(isoString) {
+  try {
+    const d = new Date(isoString);
+    let hour = d.getHours();
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return `${hour} ${ampm}`;
+  } catch (e) {
+    return isoString;
+  }
+}
+
+// Agricultural spray drift & application window evaluation
+function buildSprayAdvisory(station, forecastData) {
+  const current = (station && station.current) || {};
+  const windSpeed = parseFloat(current.windSpeed && current.windSpeed.value);
+  const windGust = parseFloat(current.windGust && current.windGust.value);
+  const temp = parseFloat(current.temp && current.temp.value);
+  const wetBulb = parseFloat(current.wetBulb && current.wetBulb.value);
+  const rain = parseFloat(current.dailyRain && current.dailyRain.value) || 0;
+
+  // Delta T (°F) = Dry Bulb - Wet Bulb (standard measure for droplet evaporation)
+  let deltaT = null;
+  if (!isNaN(temp) && !isNaN(wetBulb)) {
+    deltaT = Number((temp - wetBulb).toFixed(1));
+  }
+
+  let status = "OPTIMAL";
+  let statusColor = "optimal"; // 'optimal', 'caution', 'unfavorable'
+  let headline = "Good Spray Conditions";
+  const warnings = [];
+
+  if (rain > 0.05) {
+    status = "UNFAVORABLE";
+    statusColor = "unfavorable";
+    headline = "Wash-Off Risk (Rain Detected)";
+    warnings.push("Recent or active precipitation increases chemical runoff.");
+  } else if (!isNaN(windSpeed) && windSpeed > 12) {
+    status = "UNFAVORABLE";
+    statusColor = "unfavorable";
+    headline = "High Wind (>12 mph)";
+    warnings.push("High wind speed causes dangerous chemical drift to off-target areas.");
+  } else if (!isNaN(windGust) && windGust > 14) {
+    status = "UNFAVORABLE";
+    statusColor = "unfavorable";
+    headline = "Gusty Conditions (>14 mph)";
+    warnings.push(`Wind gusts reaching ${windGust} mph will disrupt uniform droplet deposition.`);
+  } else if (!isNaN(windSpeed) && windSpeed < 3.0) {
+    status = "CAUTION";
+    statusColor = "caution";
+    headline = "Inversion Risk (<3 mph)";
+    warnings.push("Winds < 3 mph increase risk of surface temperature inversions trapping suspended spray fog.");
+  } else if (!isNaN(windSpeed) && windSpeed >= 9.0 && windSpeed <= 12.0) {
+    status = "CAUTION";
+    statusColor = "caution";
+    headline = "Moderate Drift Risk (9–12 mph)";
+    warnings.push("Wind speed is near upper threshold. Use coarse droplet nozzles and lower boom height.");
+  }
+
+  // Check Delta T evaporation factors
+  if (deltaT !== null) {
+    if (deltaT > 18.0) {
+      if (status !== "UNFAVORABLE") {
+        status = "CAUTION";
+        statusColor = "caution";
+        headline = "High Evaporation (Delta T > 18°F)";
+      }
+      warnings.push("High Delta T causes fine droplets to evaporate before reaching target foliage.");
+    } else if (deltaT < 3.5) {
+      warnings.push("Low Delta T (< 3.5°F): Very slow drying time. Check that dew has evaporated.");
+    }
+  }
+
+  if (warnings.length === 0) {
+    warnings.push("Wind speed (3–9 mph) and Delta T are in the ideal zone for uniform crop coverage and minimal drift.");
+  }
+
+  // Next 12 hours forecast window
+  const hourlyWindows = [];
+  if (forecastData && forecastData.hourly && forecastData.hourly.time) {
+    const hourly = forecastData.hourly;
+    const nowEpoch = Date.now();
+    for (let i = 0; i < hourly.time.length; i++) {
+      const t = new Date(hourly.time[i]).getTime();
+      if (t >= nowEpoch - 1800000 && hourlyWindows.length < 12) {
+        const hWind = hourly.windspeed_10m ? hourly.windspeed_10m[i] : null;
+        const hRainProb = hourly.precipitation_probability ? hourly.precipitation_probability[i] : 0;
+        const hTemp = hourly.temperature_2m ? hourly.temperature_2m[i] : null;
+
+        let hRating = "optimal";
+        if (hWind > 12 || hRainProb > 40) hRating = "unfavorable";
+        else if (hWind < 3 || hWind > 9 || hRainProb > 20) hRating = "caution";
+
+        hourlyWindows.push({
+          timeLabel: formatHourLabel(hourly.time[i]),
+          windSpeed: hWind,
+          rainProb: hRainProb,
+          temp: hTemp,
+          rating: hRating
+        });
+      }
+    }
+  }
+
+  return {
+    status,
+    statusColor,
+    headline,
+    deltaT,
+    driftRisk: windSpeed > 12 ? "High" : windSpeed >= 9 ? "Moderate" : windSpeed >= 3 ? "Low" : "Inversion",
+    advisoryText: warnings.join(" "),
+    hourlyWindows
+  };
+}
+
 // Fallback data in case external fetch is unavailable
 function getMockData() {
   return {
@@ -242,6 +357,28 @@ function getMockData() {
         { date: "Day 4", forecastMax: 62, forecastMin: 52, forecastRain: 0.0, forecastWind: 12, weather: { desc: "Mainly clear", icon: "🌤️" } }
       ]
     },
+    sprayAdvisory: {
+      status: "CAUTION",
+      statusColor: "caution",
+      headline: "Inversion Risk (<3 mph)",
+      deltaT: 1.4,
+      driftRisk: "Inversion",
+      advisoryText: "Winds are currently under 3 mph (0.7 mph). Surface temperature inversion risk: suspended droplets can drift unpredictable distances. Delta T is low (1.4°F) indicating very slow evaporation.",
+      hourlyWindows: [
+        { timeLabel: "6 AM", windSpeed: 2.1, rainProb: 0, temp: 53, rating: "caution" },
+        { timeLabel: "7 AM", windSpeed: 3.5, rainProb: 0, temp: 55, rating: "optimal" },
+        { timeLabel: "8 AM", windSpeed: 5.2, rainProb: 0, temp: 58, rating: "optimal" },
+        { timeLabel: "9 AM", windSpeed: 6.8, rainProb: 0, temp: 61, rating: "optimal" },
+        { timeLabel: "10 AM", windSpeed: 8.5, rainProb: 0, temp: 63, rating: "optimal" },
+        { timeLabel: "11 AM", windSpeed: 10.2, rainProb: 0, temp: 65, rating: "caution" },
+        { timeLabel: "12 PM", windSpeed: 13.1, rainProb: 0, temp: 66, rating: "unfavorable" },
+        { timeLabel: "1 PM", windSpeed: 14.5, rainProb: 0, temp: 65, rating: "unfavorable" },
+        { timeLabel: "2 PM", windSpeed: 13.8, rainProb: 0, temp: 64, rating: "unfavorable" },
+        { timeLabel: "3 PM", windSpeed: 11.2, rainProb: 0, temp: 62, rating: "caution" },
+        { timeLabel: "4 PM", windSpeed: 8.0, rainProb: 0, temp: 60, rating: "optimal" },
+        { timeLabel: "5 PM", windSpeed: 5.4, rainProb: 0, temp: 58, rating: "optimal" }
+      ]
+    },
     history24h: [],
     history7d: []
   };
@@ -273,6 +410,7 @@ const mainHandler = async (req, res) => {
         try { forecastData = JSON.parse(forecastJsonText); } catch (e) {}
       }
       const comparison = buildComparison(stationData, forecastData);
+      const sprayAdvisory = buildSprayAdvisory(stationData, forecastData);
       return {
         statusCode: 200,
         headers,
@@ -280,7 +418,8 @@ const mainHandler = async (req, res) => {
           success: true,
           timestamp: new Date().toISOString(),
           station: stationData,
-          comparison: comparison
+          comparison: comparison,
+          sprayAdvisory: sprayAdvisory
         })
       };
     } catch (err) {
@@ -293,7 +432,8 @@ const mainHandler = async (req, res) => {
           isFallback: true,
           errorNotice: "Could not reach station directly; showing cached data.",
           station: fallback,
-          comparison: fallback.comparison
+          comparison: fallback.comparison,
+          sprayAdvisory: fallback.sprayAdvisory
         })
       };
     }
@@ -326,12 +466,14 @@ const mainHandler = async (req, res) => {
     }
 
     const comparison = buildComparison(stationData, forecastData);
+    const sprayAdvisory = buildSprayAdvisory(stationData, forecastData);
 
     const result = {
       success: true,
       timestamp: new Date().toISOString(),
       station: stationData,
-      comparison: comparison
+      comparison: comparison,
+      sprayAdvisory: sprayAdvisory
     };
 
     res.statusCode = 200;
@@ -345,7 +487,8 @@ const mainHandler = async (req, res) => {
       isFallback: true,
       errorNotice: "Could not reach station directly; showing cached data.",
       station: fallback,
-      comparison: fallback.comparison
+      comparison: fallback.comparison,
+      sprayAdvisory: fallback.sprayAdvisory
     }));
   }
 };
