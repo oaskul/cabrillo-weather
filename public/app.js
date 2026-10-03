@@ -2,6 +2,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   let weatherData = null;
   let deferredPrompt = null;
+  let activeHistMetric = "high";
 
   // DOM Elements
   const refreshBtn = document.getElementById("refresh-btn");
@@ -12,6 +13,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const installBanner = document.getElementById("install-banner");
   const installBtn = document.getElementById("install-btn");
   const dismissInstall = document.getElementById("dismiss-install");
+  const exportCsvBtn = document.getElementById("export-csv-btn");
+  const histTabBtns = document.querySelectorAll(".hist-tab-btn");
 
   // Tab switching
   tabs.forEach((tab) => {
@@ -24,12 +27,36 @@ document.addEventListener("DOMContentLoaded", () => {
       const targetPanel = document.getElementById(`tab-${targetTab}`);
       if (targetPanel) targetPanel.classList.add("active");
 
-      // Redraw charts if switching to trends
+      // Redraw charts if switching to trends or comparison
       if (targetTab === "trends" && weatherData) {
         renderCharts(weatherData);
       }
+      if (targetTab === "comparison" && weatherData && weatherData.comparison) {
+        drawHistoricalComparisonChart(weatherData.comparison, activeHistMetric);
+      }
     });
   });
+
+  // Historical chart metric switcher
+  histTabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      histTabBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeHistMetric = btn.dataset.metric;
+      if (weatherData && weatherData.comparison) {
+        drawHistoricalComparisonChart(weatherData.comparison, activeHistMetric);
+      }
+    });
+  });
+
+  // Export CSV
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener("click", () => {
+      if (weatherData && weatherData.comparison) {
+        exportComparisonCsv(weatherData.comparison);
+      }
+    });
+  }
 
   // PWA Install prompt handling
   window.addEventListener("beforeinstallprompt", (e) => {
@@ -134,33 +161,81 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderComparison(comp) {
-    if (!comp || !comp.today) return;
+    if (!comp) return;
 
-    const today = comp.today;
-    const fc = today.forecast;
-    const act = today.actual;
-    const diff = today.diff;
+    if (comp.today) {
+      const today = comp.today;
+      const fc = today.forecast;
+      const act = today.actual;
+      const diff = today.diff;
 
-    // Table rows
-    document.getElementById("comp-fc-high").textContent = `${fc.maxTemp}°F`;
-    document.getElementById("comp-act-high").textContent = `${act.maxTemp}°F`;
-    formatDiffCell("comp-diff-high", diff.tempHighDiff, "°F", true);
+      // Table rows
+      document.getElementById("comp-fc-high").textContent = `${fc.maxTemp}°F`;
+      document.getElementById("comp-act-high").textContent = `${act.maxTemp}°F`;
+      formatDiffCell("comp-diff-high", diff.tempHighDiff, "°F", true);
 
-    document.getElementById("comp-fc-low").textContent = `${fc.minTemp}°F`;
-    document.getElementById("comp-act-low").textContent = `${act.minTemp}°F`;
-    formatDiffCell("comp-diff-low", diff.tempLowDiff, "°F", true);
+      document.getElementById("comp-fc-low").textContent = `${fc.minTemp}°F`;
+      document.getElementById("comp-act-low").textContent = `${act.minTemp}°F`;
+      formatDiffCell("comp-diff-low", diff.tempLowDiff, "°F", true);
 
-    document.getElementById("comp-fc-wind").textContent = `${fc.maxWind} mph`;
-    document.getElementById("comp-act-wind").textContent = `${act.maxWind} mph`;
-    formatDiffCell("comp-diff-wind", diff.windDiff, " mph", false);
+      document.getElementById("comp-fc-wind").textContent = `${fc.maxWind} mph`;
+      document.getElementById("comp-act-wind").textContent = `${act.maxWind} mph`;
+      formatDiffCell("comp-diff-wind", diff.windDiff, " mph", false);
 
-    document.getElementById("comp-fc-rain").textContent = `${fc.rain} in`;
-    document.getElementById("comp-act-rain").textContent = `${act.rain} in`;
-    formatDiffCell("comp-diff-rain", diff.rainDiff, " in", false);
+      document.getElementById("comp-fc-rain").textContent = `${fc.rain} in`;
+      document.getElementById("comp-act-rain").textContent = `${act.rain} in`;
+      formatDiffCell("comp-diff-rain", diff.rainDiff, " in", false);
 
-    // Summary box
-    document.getElementById("comp-summary-text").textContent =
-      today.summary || "Station actuals align closely with regional forecast.";
+      // Summary box
+      document.getElementById("comp-summary-text").textContent =
+        today.summary || "Station actuals align closely with regional forecast.";
+    }
+
+    // Render 7-Day Microclimate Bias KPIs
+    if (comp.microclimateBias) {
+      const mb = comp.microclimateBias;
+      const signHigh = mb.avgHighDiff > 0 ? "+" : "";
+      const signLow = mb.avgLowDiff > 0 ? "+" : "";
+      const signWind = mb.avgWindDiff > 0 ? "+" : "";
+
+      document.getElementById("bias-high-val").textContent = `${signHigh}${mb.avgHighDiff}°F`;
+      document.getElementById("bias-low-val").textContent = `${signLow}${mb.avgLowDiff}°F`;
+      document.getElementById("bias-wind-val").textContent = `${signWind}${mb.avgWindDiff} mph`;
+      document.getElementById("bias-rain-val").textContent = `${mb.totalRainActual}" vs ${mb.totalRainForecast}"`;
+
+      const biasSummaryText = document.getElementById("bias-summary-text");
+      if (biasSummaryText && mb.summary) {
+        biasSummaryText.textContent = mb.summary;
+      }
+    }
+
+    // Render 7-Day Historical Scorecard Table
+    const histTableBody = document.getElementById("hist-table-body");
+    if (histTableBody && comp.historicalComparison && comp.historicalComparison.length > 0) {
+      histTableBody.innerHTML = comp.historicalComparison
+        .map((day) => {
+          const signH = day.diffHigh > 0 ? "+" : "";
+          const diffClass = day.diffHigh > 0 ? "diff-positive" : day.diffHigh < 0 ? "diff-negative" : "diff-neutral";
+
+          return `
+          <tr>
+            <td class="hist-day-cell">
+              <strong>${day.dayLabel}</strong>
+            </td>
+            <td>${Math.round(day.forecastHigh)}° / ${Math.round(day.forecastLow)}°</td>
+            <td><strong>${Math.round(day.actualHigh)}° / ${Math.round(day.actualLow)}°</strong></td>
+            <td class="diff-cell ${diffClass}">${signH}${day.diffHigh}°F</td>
+            <td class="hist-note-cell">
+              <span>${day.weather.icon} ${day.note || day.weather.desc}</span>
+            </td>
+          </tr>
+        `;
+        })
+        .join("");
+    }
+
+    // Draw 7-Day Historical Comparison Chart
+    drawHistoricalComparisonChart(comp, activeHistMetric);
 
     // 7-day outlook list
     const outlookList = document.getElementById("forecast-days-list");
@@ -271,6 +346,199 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .join("");
     }
+  }
+
+  function drawHistoricalComparisonChart(comp, metric) {
+    const canvas = document.getElementById("chart-hist-comparison");
+    if (!canvas || !comp || !comp.historicalComparison || comp.historicalComparison.length === 0) return;
+
+    const hist = comp.historicalComparison;
+    let series1 = [];
+    let series2 = [];
+    let label1 = "Station High";
+    let label2 = "Forecast High";
+    let color1 = "#1b4332";
+    let color2 = "#e67e22";
+
+    if (metric === "high") {
+      label1 = "Station High";
+      label2 = "Forecast High";
+      color1 = "#1b4332";
+      color2 = "#e67e22";
+      hist.forEach((d) => {
+        series1.push({ label: d.dayLabel.split(",")[0], val: d.actualHigh });
+        series2.push({ label: d.dayLabel.split(",")[0], val: d.forecastHigh });
+      });
+    } else if (metric === "low") {
+      label1 = "Station Low";
+      label2 = "Forecast Low";
+      color1 = "#2d6a4f";
+      color2 = "#3498db";
+      hist.forEach((d) => {
+        series1.push({ label: d.dayLabel.split(",")[0], val: d.actualLow });
+        series2.push({ label: d.dayLabel.split(",")[0], val: d.forecastLow });
+      });
+    } else if (metric === "wind") {
+      label1 = "Station Max Wind";
+      label2 = "Forecast Max Wind";
+      color1 = "#2d6a4f";
+      color2 = "#d9534f";
+      hist.forEach((d) => {
+        series1.push({ label: d.dayLabel.split(",")[0], val: d.actualWind });
+        series2.push({ label: d.dayLabel.split(",")[0], val: d.forecastWind });
+      });
+    } else if (metric === "rain") {
+      label1 = "Station Rain";
+      label2 = "Forecast Rain";
+      color1 = "#2980b9";
+      color2 = "#8a9690";
+      hist.forEach((d) => {
+        series1.push({ label: d.dayLabel.split(",")[0], val: d.actualRain });
+        series2.push({ label: d.dayLabel.split(",")[0], val: d.forecastRain });
+      });
+    }
+
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const padLeft = 35;
+    const padRight = 15;
+    const padTop = 28;
+    const padBottom = 26;
+    const plotWidth = width - padLeft - padRight;
+    const plotHeight = height - padTop - padBottom;
+
+    const allVals = [...series1.map((p) => p.val), ...series2.map((p) => p.val)];
+    let minVal = Math.floor(Math.min(...allVals) - (metric === "rain" ? 0 : 2));
+    if (metric === "rain" && minVal < 0) minVal = 0;
+    let maxVal = Math.ceil(Math.max(...allVals) + (metric === "rain" ? 0.05 : 2));
+    if (minVal === maxVal) maxVal += 2;
+
+    // Draw horizontal grid lines
+    ctx.strokeStyle = "#e8edea";
+    ctx.lineWidth = 1;
+    ctx.fillStyle = "#8a9690";
+    ctx.font = "9.5px JetBrains Mono, monospace";
+
+    const steps = 3;
+    for (let i = 0; i <= steps; i++) {
+      const val = minVal + ((maxVal - minVal) * i) / steps;
+      const y = padTop + plotHeight - (i / steps) * plotHeight;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, y);
+      ctx.lineTo(width - padRight, y);
+      ctx.stroke();
+      ctx.fillText(metric === "rain" ? val.toFixed(2) : Math.round(val), 6, y + 3);
+    }
+
+    // Draw series
+    const drawSeries = (series, color) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+
+      series.forEach((p, idx) => {
+        const x = padLeft + (idx / (series.length - 1)) * plotWidth;
+        const y = padTop + plotHeight - ((p.val - minVal) / (maxVal - minVal)) * plotHeight;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      series.forEach((p, idx) => {
+        const x = padLeft + (idx / (series.length - 1)) * plotWidth;
+        const y = padTop + plotHeight - ((p.val - minVal) / (maxVal - minVal)) * plotHeight;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (color === color1) {
+          ctx.fillStyle = "#6b7c74";
+          ctx.font = "9.5px Plus Jakarta Sans, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(p.label, x, height - 8);
+          ctx.textAlign = "left";
+        }
+      });
+    };
+
+    drawSeries(series2, color2);
+    drawSeries(series1, color1);
+
+    // Legend
+    ctx.font = "10px Plus Jakarta Sans, sans-serif";
+    ctx.fillStyle = color1;
+    ctx.beginPath();
+    ctx.arc(padLeft + 5, 12, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1b4332";
+    ctx.fillText(label1, padLeft + 14, 15);
+
+    ctx.fillStyle = color2;
+    ctx.beginPath();
+    ctx.arc(padLeft + 125, 12, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#8a6d3b";
+    ctx.fillText(label2, padLeft + 134, 15);
+  }
+
+  function exportComparisonCsv(comp) {
+    if (!comp || !comp.historicalComparison || comp.historicalComparison.length === 0) {
+      alert("No historical comparison data available to export.");
+      return;
+    }
+
+    const headers = [
+      "Date",
+      "Day",
+      "Forecast_High_F",
+      "Actual_High_F",
+      "High_Variance_F",
+      "Forecast_Low_F",
+      "Actual_Low_F",
+      "Low_Variance_F",
+      "Forecast_Max_Wind_mph",
+      "Actual_Max_Wind_mph",
+      "Wind_Variance_mph",
+      "Forecast_Rain_in",
+      "Actual_Rain_in",
+      "Rain_Variance_in",
+      "Conditions",
+      "Microclimate_Notes"
+    ];
+
+    const rows = comp.historicalComparison.map((d) => [
+      d.date,
+      `"${d.dayLabel}"`,
+      d.forecastHigh,
+      d.actualHigh,
+      d.diffHigh,
+      d.forecastLow,
+      d.actualLow,
+      d.diffLow,
+      d.forecastWind,
+      d.actualWind,
+      d.diffWind,
+      d.forecastRain,
+      d.actualRain,
+      d.diffRain,
+      `"${d.weather.desc}"`,
+      `"${d.note || ""}"`
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `cabrillo-weather-comparison-${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // Pure canvas lightweight charts (zero external library needed)

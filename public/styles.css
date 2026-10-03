@@ -825,6 +825,148 @@ body {
   line-height: 1.4;
 }
 
+/* Historical Microclimate Comparison Enhancements */
+.export-btn {
+  background: var(--accent-soft);
+  color: var(--primary);
+  border: 1px solid rgba(27, 67, 50, 0.2);
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.bias-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (min-width: 500px) {
+  .bias-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.bias-stat-box {
+  background: var(--bg-app);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.bias-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.bias-stat-num {
+  font-size: 16px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-main);
+  margin: 3px 0 1px 0;
+}
+
+.bias-stat-sub {
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.bias-box {
+  background: #f0fdfa;
+  border-left-color: #0d9488;
+  color: #115e59;
+}
+
+.hist-chart-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.hist-chart-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hist-chart-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.hist-btn-group {
+  display: flex;
+  gap: 4px;
+}
+
+.hist-tab-btn {
+  background: var(--bg-app);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hist-tab-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.hist-table-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.hist-table-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.hist-table th, .hist-table td {
+  padding: 8px 6px;
+  font-size: 12px;
+}
+
+.hist-day-cell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hist-note-cell {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 140px;
+}
+
 /* 7-Day Forecast Cards */
 .forecast-days-list {
   display: flex;

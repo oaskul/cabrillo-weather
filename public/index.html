@@ -284,6 +284,89 @@
           </div>
         </div>
 
+        <!-- 7-Day Historical Microclimate Analysis & Trend Visualizer -->
+        <div class="comparison-card historical-card">
+          <div class="comparison-header">
+            <div>
+              <h4>7-Day Microclimate Analysis</h4>
+              <span class="chart-sub">Station actuals vs. regional forecast (past 7 days)</span>
+            </div>
+            <button id="export-csv-btn" class="export-btn" title="Export comparison to CSV">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              </svg>
+              <span>Export CSV</span>
+            </button>
+          </div>
+
+          <!-- Microclimate Bias Stats Grid -->
+          <div class="bias-stats-grid">
+            <div class="bias-stat-box">
+              <span class="bias-stat-label">Daytime Highs</span>
+              <span id="bias-high-val" class="bias-stat-num">--°F</span>
+              <span class="bias-stat-sub">Marine layer bias</span>
+            </div>
+            <div class="bias-stat-box">
+              <span class="bias-stat-label">Night Lows</span>
+              <span id="bias-low-val" class="bias-stat-num">--°F</span>
+              <span class="bias-stat-sub">Ocean thermal buffer</span>
+            </div>
+            <div class="bias-stat-box">
+              <span class="bias-stat-label">Peak Wind</span>
+              <span id="bias-wind-val" class="bias-stat-num">-- mph</span>
+              <span class="bias-stat-sub">Farm gust variance</span>
+            </div>
+            <div class="bias-stat-box">
+              <span class="bias-stat-label">Rain Variance</span>
+              <span id="bias-rain-val" class="bias-stat-num">-- in</span>
+              <span class="bias-stat-sub">Actual vs Forecast</span>
+            </div>
+          </div>
+
+          <!-- Microclimate Narrative Summary -->
+          <div id="bias-summary-box" class="comp-summary-box bias-box">
+            <span class="icon">🌊</span>
+            <span id="bias-summary-text">Analyzing 7-day coastal microclimate patterns...</span>
+          </div>
+
+          <!-- 7-Day Comparison Visualizer Chart -->
+          <div class="hist-chart-section">
+            <div class="hist-chart-controls">
+              <span class="hist-chart-title">7-Day Comparison Chart:</span>
+              <div class="hist-btn-group" id="hist-chart-tabs">
+                <button class="hist-tab-btn active" data-metric="high">Highs</button>
+                <button class="hist-tab-btn" data-metric="low">Lows</button>
+                <button class="hist-tab-btn" data-metric="wind">Wind</button>
+                <button class="hist-tab-btn" data-metric="rain">Rain</button>
+              </div>
+            </div>
+            <div class="chart-canvas-container" style="height: 180px;">
+              <canvas id="chart-hist-comparison" width="360" height="180"></canvas>
+            </div>
+          </div>
+
+          <!-- Detailed Day-by-Day Historical Breakdown Table -->
+          <div class="hist-table-section">
+            <h5 class="hist-table-title">Day-by-Day Historical Scorecard</h5>
+            <div class="comp-table-wrap">
+              <table class="comp-table hist-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th>Forecast</th>
+                    <th>Actual</th>
+                    <th>Variance</th>
+                    <th>Conditions & Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="hist-table-body">
+                  <!-- Injected dynamically by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Upcoming 7-Day Regional Outlook -->
         <div class="forecast-outlook-card">
           <div class="outlook-header">
