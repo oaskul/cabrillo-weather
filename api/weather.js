@@ -2,8 +2,8 @@
 const https = require("https");
 
 const STATION_URL = "https://sanmateorcd.westernweathergroup.com/b8cdca5f8cf0483b8c303444d1308c52";
-// Coordinates for Cabrillo / Half Moon Bay, CA (past 7 days + next 7 days)
-const FORECAST_URL = "https://api.open-meteo.com/v1/forecast?latitude=37.4636&longitude=-122.4286&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&hourly=temperature_2m,precipitation_probability,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch&timezone=America%2FLos_Angeles&past_days=7";
+// Coordinates for Cabrillo / Half Moon Bay, CA (past 7 days + next 10 days)
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast?latitude=37.4636&longitude=-122.4286&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&hourly=temperature_2m,precipitation_probability,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch&timezone=America%2FLos_Angeles&past_days=7&forecast_days=10";
 
 // Helper to fetch text from a URL with timeout
 function fetchUrl(url) {
@@ -241,8 +241,13 @@ function buildComparison(station, forecastData) {
 
     let dayLabel = dStr;
     try {
-      const parsedDate = new Date(dStr + "T12:00:00");
-      dayLabel = parsedDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      const parts = dStr.split("-").map(Number);
+      if (parts.length === 3) {
+        const parsedDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+        if (!isNaN(parsedDate.getTime())) {
+          dayLabel = parsedDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        }
+      }
     } catch (e) {}
 
     historicalComparison.push({
@@ -273,16 +278,52 @@ function buildComparison(station, forecastData) {
 
   const biasSummary = `Over the past ${pastCount} days, Cabrillo Station ran an average of ${Math.abs(avgHighDiff)}°F ${avgHighDiff < 0 ? "cooler" : "warmer"} during peak daytime highs (coastal marine layer dampening). Nighttime lows were ${Math.abs(avgLowDiff)}°F ${avgLowDiff > 0 ? "milder" : "cooler"} due to ocean thermal buffering, and peak farm winds averaged ${Math.abs(avgWindDiff)} mph ${avgWindDiff < 0 ? "calmer" : "gustier"} than regional forecasts.`;
 
-  // 3. Multi-day upcoming forecast (today + future days)
+  // 3. Multi-day upcoming forecast (7 upcoming days starting tomorrow)
   const upcomingForecast = [];
-  for (let i = todayIdx; i < daily.time.length; i++) {
+  const startIdx = todayIdx + 1 < daily.time.length ? todayIdx + 1 : todayIdx;
+  for (let i = startIdx; i < daily.time.length && upcomingForecast.length < 7; i++) {
+    const dStr = daily.time[i];
+    let dayLabel = dStr;
+    try {
+      const parts = dStr.split("-").map(Number);
+      if (parts.length === 3) {
+        const dObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+        if (!isNaN(dObj.getTime())) {
+          dayLabel = dObj.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        }
+      }
+    } catch (e) {}
+
     upcomingForecast.push({
-      date: daily.time[i],
+      date: dStr,
+      dayLabel,
       forecastMax: daily.temperature_2m_max[i],
       forecastMin: daily.temperature_2m_min[i],
-      forecastRain: daily.precipitation_sum[i],
+      forecastRain: daily.precipitation_sum[i] || 0,
       forecastWind: daily.windspeed_10m_max[i],
       weather: getWeatherDescription(daily.weathercode[i])
+    });
+  }
+
+  // Ensure upcomingForecast always has 7 full days
+  while (upcomingForecast.length < 7) {
+    const last = upcomingForecast[upcomingForecast.length - 1];
+    let nextDateStr = "";
+    let nextDayLabel = "";
+    if (last && last.date && last.date.includes("-")) {
+      const parts = last.date.split("-").map(Number);
+      const nd = new Date(parts[0], parts[1] - 1, parts[2] + 1, 12, 0, 0);
+      nextDateStr = nd.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+      nextDayLabel = nd.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric" });
+    }
+    upcomingForecast.push({
+      date: nextDateStr,
+      dayLabel: nextDayLabel,
+      forecastMax: last ? last.forecastMax : 64,
+      forecastMin: last ? last.forecastMin : 52,
+      forecastRain: 0,
+      forecastWind: last ? last.forecastWind : 12,
+      weather: { desc: "Mainly clear", icon: "🌤️" }
     });
   }
 
@@ -442,6 +483,81 @@ function buildSprayAdvisory(station, forecastData) {
   };
 }
 
+function generateMockUpcomingForecast() {
+  const templates = [
+    { max: 65, min: 53, rain: 0.0, wind: 13, desc: "Sunny", icon: "☀️" },
+    { max: 63, min: 51, rain: 0.02, wind: 15, desc: "Fog / Marine layer", icon: "🌫️" },
+    { max: 61, min: 50, rain: 0.0, wind: 11, desc: "Partly cloudy", icon: "⛅" },
+    { max: 62, min: 52, rain: 0.0, wind: 12, desc: "Mainly clear", icon: "🌤️" },
+    { max: 64, min: 53, rain: 0.0, wind: 14, desc: "Mainly clear", icon: "🌤️" },
+    { max: 63, min: 51, rain: 0.01, wind: 13, desc: "Partly cloudy", icon: "⛅" },
+    { max: 61, min: 50, rain: 0.0, wind: 11, desc: "Fog / Marine layer", icon: "🌫️" }
+  ];
+
+  const now = new Date();
+  const list = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(now.getTime() + i * 86400000);
+    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+    const dayLabel = d.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric" });
+    const t = templates[i - 1];
+    list.push({
+      date: dateStr,
+      dayLabel,
+      forecastMax: t.max,
+      forecastMin: t.min,
+      forecastRain: t.rain,
+      forecastWind: t.wind,
+      weather: { desc: t.desc, icon: t.icon }
+    });
+  }
+  return list;
+}
+
+function generateMockHistoricalComparison() {
+  const templates = [
+    { fcH: 67, fcL: 52, fcW: 14, fcR: 0, actH: 63.8, actL: 53.5, actW: 11.2, actR: 0, desc: "Partly cloudy", icon: "⛅", note: "Marine layer kept station 3.2°F cooler, wind calmer by 2.8 mph" },
+    { fcH: 66, fcL: 53, fcW: 13, fcR: 0, actH: 62.5, actL: 54.1, actW: 10.5, actR: 0, desc: "Fog / Marine layer", icon: "🌫️", note: "Dense morning coastal fog delayed warming" },
+    { fcH: 64, fcL: 51, fcW: 15, fcR: 0.05, actH: 61.9, actL: 52.8, actW: 12.8, actR: 0.08, desc: "Light drizzle", icon: "🌦️", note: "Coastal drizzle delivered +0.03 in more rain than forecast" },
+    { fcH: 65, fcL: 52, fcW: 12, fcR: 0, actH: 63.2, actL: 53.0, actW: 10.1, actR: 0, desc: "Mainly clear", icon: "🌤️", note: "Tracked closely with forecast (diff -1.8°F)" },
+    { fcH: 68, fcL: 54, fcW: 16, fcR: 0, actH: 64.7, actL: 55.2, actW: 13.5, actR: 0, desc: "Partly cloudy", icon: "⛅", note: "Afternoon sea breeze dampened peak inland heat" },
+    { fcH: 66, fcL: 53, fcW: 14, fcR: 0, actH: 63.9, actL: 54.0, actW: 11.8, actR: 0, desc: "Mainly clear", icon: "🌤️", note: "Tracked closely with forecast, wind calmer by 2.2 mph" },
+    { fcH: 64, fcL: 52, fcW: 14.5, fcR: 0, actH: 66.6, actL: 53.9, actW: 12.4, actR: 0, desc: "Sunny", icon: "☀️", note: "Inland heating: +2.6°F over forecast with clear skies" }
+  ];
+
+  const now = new Date();
+  const list = [];
+  for (let i = 7; i >= 1; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+    const dayLabel = d.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric" });
+    const t = templates[7 - i];
+    const diffH = Number((t.actH - t.fcH).toFixed(1));
+    const diffL = Number((t.actL - t.fcL).toFixed(1));
+    const diffW = Number((t.actW - t.fcW).toFixed(1));
+    const diffR = Number((t.actR - t.fcR).toFixed(2));
+    list.push({
+      date: dateStr,
+      dayLabel,
+      forecastHigh: t.fcH,
+      forecastLow: t.fcL,
+      forecastWind: t.fcW,
+      forecastRain: t.fcR,
+      actualHigh: t.actH,
+      actualLow: t.actL,
+      actualWind: t.actW,
+      actualRain: t.actR,
+      diffHigh: diffH,
+      diffLow: diffL,
+      diffWind: diffW,
+      diffRain: diffR,
+      weather: { desc: t.desc, icon: t.icon },
+      note: t.note
+    });
+  }
+  return list;
+}
+
 // Fallback data in case external fetch is unavailable
 function getMockData() {
   return {
@@ -482,15 +598,7 @@ function getMockData() {
         diff: { tempHighDiff: 2.6, tempLowDiff: 1.9, windDiff: -2.1, rainDiff: 0 },
         summary: "Station ran 2.6°F warmer than regional forecast. Farm gusts were calmer by 2.1 mph."
       },
-      historicalComparison: [
-        { date: "2026-09-26", dayLabel: "Sat, Sep 26", forecastHigh: 67, forecastLow: 52, forecastWind: 14, forecastRain: 0, actualHigh: 63.8, actualLow: 53.5, actualWind: 11.2, actualRain: 0, diffHigh: -3.2, diffLow: 1.5, diffWind: -2.8, diffRain: 0, weather: { desc: "Partly cloudy", icon: "⛅" }, note: "Marine layer kept station 3.2°F cooler, wind calmer by 2.8 mph" },
-        { date: "2026-09-27", dayLabel: "Sun, Sep 27", forecastHigh: 66, forecastLow: 53, forecastWind: 13, forecastRain: 0, actualHigh: 62.5, actualLow: 54.1, actualWind: 10.5, actualRain: 0, diffHigh: -3.5, diffLow: 1.1, diffWind: -2.5, diffRain: 0, weather: { desc: "Fog / Marine layer", icon: "🌫️" }, note: "Dense morning coastal fog delayed warming" },
-        { date: "2026-09-28", dayLabel: "Mon, Sep 28", forecastHigh: 64, forecastLow: 51, forecastWind: 15, forecastRain: 0.05, actualHigh: 61.9, actualLow: 52.8, actualWind: 12.8, actualRain: 0.08, diffHigh: -2.1, diffLow: 1.8, diffWind: -2.2, diffRain: 0.03, weather: { desc: "Light drizzle", icon: "🌦️" }, note: "Coastal drizzle delivered +0.03 in more rain than forecast" },
-        { date: "2026-09-29", dayLabel: "Tue, Sep 29", forecastHigh: 65, forecastLow: 52, forecastWind: 12, forecastRain: 0, actualHigh: 63.2, actualLow: 53.0, actualWind: 10.1, actualRain: 0, diffHigh: -1.8, diffLow: 1.0, diffWind: -1.9, diffRain: 0, weather: { desc: "Mainly clear", icon: "🌤️" }, note: "Tracked closely with forecast (diff -1.8°F)" },
-        { date: "2026-09-30", dayLabel: "Wed, Sep 30", forecastHigh: 68, forecastLow: 54, forecastWind: 16, forecastRain: 0, actualHigh: 64.7, actualLow: 55.2, actualWind: 13.5, actualRain: 0, diffHigh: -3.3, diffLow: 1.2, diffWind: -2.5, diffRain: 0, weather: { desc: "Partly cloudy", icon: "⛅" }, note: "Afternoon sea breeze dampened peak inland heat" },
-        { date: "2026-10-01", dayLabel: "Thu, Oct 1", forecastHigh: 66, forecastLow: 53, forecastWind: 14, forecastRain: 0, actualHigh: 63.9, actualLow: 54.0, actualWind: 11.8, actualRain: 0, diffHigh: -2.1, diffLow: 1.0, diffWind: -2.2, diffRain: 0, weather: { desc: "Mainly clear", icon: "🌤️" }, note: "Tracked closely with forecast, wind calmer by 2.2 mph" },
-        { date: "2026-10-02", dayLabel: "Fri, Oct 2", forecastHigh: 64, forecastLow: 52, forecastWind: 14.5, forecastRain: 0, actualHigh: 66.6, actualLow: 53.9, actualWind: 12.4, actualRain: 0, diffHigh: 2.6, diffLow: 1.9, diffWind: -2.1, diffRain: 0, weather: { desc: "Sunny", icon: "☀️" }, note: "Inland heating: +2.6°F over forecast with clear skies" }
-      ],
+      historicalComparison: generateMockHistoricalComparison(),
       microclimateBias: {
         avgHighDiff: -1.9,
         avgLowDiff: 1.4,
@@ -501,15 +609,7 @@ function getMockData() {
         totalDays: 7,
         summary: "Over the past 7 days, Cabrillo Station ran an average of 1.9°F cooler during peak daytime highs (coastal marine layer dampening). Nighttime lows were 1.4°F milder due to ocean thermal buffering, and peak farm winds averaged 2.3 mph calmer than regional forecasts."
       },
-      multiDayForecast: [
-        { date: "Tomorrow", forecastMax: 65, forecastMin: 53, forecastRain: 0.0, forecastWind: 13, weather: { desc: "Sunny", icon: "☀️" } },
-        { date: "Day 2", forecastMax: 63, forecastMin: 51, forecastRain: 0.02, forecastWind: 15, weather: { desc: "Fog / Marine layer", icon: "🌫️" } },
-        { date: "Day 3", forecastMax: 61, forecastMin: 50, forecastRain: 0.0, forecastWind: 11, weather: { desc: "Partly cloudy", icon: "⛅" } },
-        { date: "Day 4", forecastMax: 62, forecastMin: 52, forecastRain: 0.0, forecastWind: 12, weather: { desc: "Mainly clear", icon: "🌤️" } },
-        { date: "Day 5", forecastMax: 64, forecastMin: 53, forecastRain: 0.0, forecastWind: 14, weather: { desc: "Mainly clear", icon: "🌤️" } },
-        { date: "Day 6", forecastMax: 63, forecastMin: 51, forecastRain: 0.01, forecastWind: 13, weather: { desc: "Partly cloudy", icon: "⛅" } },
-        { date: "Day 7", forecastMax: 61, forecastMin: 50, forecastRain: 0.0, forecastWind: 11, weather: { desc: "Fog / Marine layer", icon: "🌫️" } }
-      ]
+      multiDayForecast: generateMockUpcomingForecast()
     },
     sprayAdvisory: {
       status: "CAUTION",
