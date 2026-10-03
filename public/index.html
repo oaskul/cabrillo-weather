@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=2.2" />
+  <link rel="stylesheet" href="/styles.css?v=2.3" />
 </head>
 <body>
   <div id="app" class="app-container">
@@ -44,12 +44,13 @@
 
       <!-- Quick Status Bar -->
       <div class="status-bar">
-        <div class="status-item">
+        <div class="status-item" title="Station telemetry last transmission time">
           <span class="status-dot"></span>
           <span id="last-updated-text">Updated recently</span>
         </div>
-        <div class="status-item battery-status" id="battery-indicator">
+        <div class="status-item battery-status" id="battery-indicator" title="Remote weather station 12V solar battery health">
           <span class="bat-icon">🔋</span>
+          <span class="bat-label">Station Battery:</span>
           <span id="battery-text">-- V</span>
         </div>
       </div>
@@ -419,6 +420,6 @@
     </footer>
   </div>
 
-  <script src="/app.js?v=2.3"></script>
+  <script src="/app.js?v=2.4"></script>
 </body>
 </html>

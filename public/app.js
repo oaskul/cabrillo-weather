@@ -122,14 +122,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // Header info
     document.getElementById("last-updated-text").textContent = station.lastReported || "Updated recently";
     
-    // Battery
-    const batVal = parseFloat(current.batteryVoltage.value);
+    // Station Battery (12V Solar Tower Battery)
     const batText = document.getElementById("battery-text");
-    batText.textContent = `${current.batteryVoltage.value} V`;
-    if (!isNaN(batVal)) {
-      if (batVal >= 12.6) batText.textContent += " (Good)";
-      else if (batVal >= 12.0) batText.textContent += " (Fair)";
-      else batText.textContent += " (Low)";
+    if (current && current.batteryVoltage && current.batteryVoltage.value) {
+      const batVal = parseFloat(current.batteryVoltage.value);
+      batText.textContent = `${current.batteryVoltage.value} V`;
+      if (!isNaN(batVal)) {
+        if (batVal >= 12.6) batText.textContent += " (Good)";
+        else if (batVal >= 12.0) batText.textContent += " (Fair)";
+        else batText.textContent += " (Low)";
+      }
+    } else if (batText) {
+      batText.textContent = "-- V";
     }
 
     // Hero Temp & Today's High/Low
