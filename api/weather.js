@@ -558,6 +558,58 @@ function generateMockHistoricalComparison() {
   return list;
 }
 
+function generateMockHistory24h() {
+  const hours = [
+    { time: "00:00", temp: 53.8, dew: 53.0, wind: 1.2, gust: 2.5 },
+    { time: "03:00", temp: 53.2, dew: 52.8, wind: 0.8, gust: 1.8 },
+    { time: "06:00", temp: 54.1, dew: 53.5, wind: 1.5, gust: 3.1 },
+    { time: "09:00", temp: 58.6, dew: 55.2, wind: 4.8, gust: 7.5 },
+    { time: "12:00", temp: 64.5, dew: 57.0, wind: 8.2, gust: 12.4 },
+    { time: "15:00", temp: 66.2, dew: 57.5, wind: 9.6, gust: 14.1 },
+    { time: "18:00", temp: 61.4, dew: 56.1, wind: 6.3, gust: 9.8 },
+    { time: "21:00", temp: 56.0, dew: 54.2, wind: 2.4, gust: 4.2 }
+  ];
+  return hours.map(h => ({
+    Time: h.time,
+    Date: h.time,
+    Value_Temp: h.temp,
+    Value_DewPoint: h.dew,
+    Value_WindSpeed: h.wind,
+    Value_WindMax: h.gust
+  }));
+}
+
+function generateMockHistory7d() {
+  const now = new Date();
+  const sampleTemps = [
+    { high: 62, low: 54, rain: 0.02 },
+    { high: 60, low: 57, rain: 0 },
+    { high: 62, low: 52, rain: 0 },
+    { high: 67, low: 49, rain: 0 },
+    { high: 64, low: 50, rain: 0 },
+    { high: 61, low: 52, rain: 0 },
+    { high: 65, low: 55, rain: 0 }
+  ];
+
+  const list = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const dateStr = d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+    const dayLabel = d.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "numeric", day: "numeric" });
+    const st = sampleTemps[6 - i];
+    list.push({
+      Day: dateStr,
+      Date: dateStr,
+      dayLabel,
+      Value_Temp: st.high,
+      Value_MinTemp: st.low,
+      Value_PrecipDay: st.rain,
+      Value_DewPoint: st.low + 1
+    });
+  }
+  return list;
+}
+
 // Fallback data in case external fetch is unavailable
 function getMockData() {
   return {
@@ -633,8 +685,8 @@ function getMockData() {
         { timeLabel: "5 PM", windSpeed: 5.4, rainProb: 0, temp: 58, rating: "optimal" }
       ]
     },
-    history24h: [],
-    history7d: []
+    history24h: generateMockHistory24h(),
+    history7d: generateMockHistory7d()
   };
 }
 

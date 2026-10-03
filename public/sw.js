@@ -1,5 +1,5 @@
 // sw.js - Service Worker for Cabrillo Weather PWA
-const CACHE_NAME = "cabrillo-weather-v3";
+const CACHE_NAME = "cabrillo-weather-v4";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",

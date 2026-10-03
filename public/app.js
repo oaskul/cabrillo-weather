@@ -29,7 +29,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Redraw charts if switching to trends or comparison
       if (targetTab === "trends" && weatherData) {
-        renderCharts(weatherData);
+        setTimeout(() => {
+          renderCharts(weatherData);
+        }, 50);
       }
       if (targetTab === "comparison") {
         setTimeout(() => {
@@ -696,15 +698,129 @@ document.addEventListener("DOMContentLoaded", () => {
     URL.revokeObjectURL(url);
   }
 
+  function generateMockHistory24h() {
+    const hours = [
+      { time: "00:00", temp: 53.8, dew: 53.0, wind: 1.2, gust: 2.5 },
+      { time: "03:00", temp: 53.2, dew: 52.8, wind: 0.8, gust: 1.8 },
+      { time: "06:00", temp: 54.1, dew: 53.5, wind: 1.5, gust: 3.1 },
+      { time: "09:00", temp: 58.6, dew: 55.2, wind: 4.8, gust: 7.5 },
+      { time: "12:00", temp: 64.5, dew: 57.0, wind: 8.2, gust: 12.4 },
+      { time: "15:00", temp: 66.2, dew: 57.5, wind: 9.6, gust: 14.1 },
+      { time: "18:00", temp: 61.4, dew: 56.1, wind: 6.3, gust: 9.8 },
+      { time: "21:00", temp: 56.0, dew: 54.2, wind: 2.4, gust: 4.2 }
+    ];
+    return hours.map((h) => ({
+      Time: h.time,
+      Date: h.time,
+      Value_Temp: h.temp,
+      Value_DewPoint: h.dew,
+      Value_WindSpeed: h.wind,
+      Value_WindMax: h.gust
+    }));
+  }
+
+  function generateMockHistory7d() {
+    const now = new Date();
+    const sampleTemps = [
+      { high: 62, low: 54, rain: 0.02 },
+      { high: 60, low: 57, rain: 0 },
+      { high: 62, low: 52, rain: 0 },
+      { high: 67, low: 49, rain: 0 },
+      { high: 64, low: 50, rain: 0 },
+      { high: 61, low: 52, rain: 0 },
+      { high: 65, low: 55, rain: 0 }
+    ];
+
+    const list = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 86400000);
+      const dateStr = d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+      const dayLabel = d.toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "numeric", day: "numeric" });
+      const st = sampleTemps[6 - i];
+      list.push({
+        Day: dateStr,
+        Date: dateStr,
+        dayLabel,
+        Value_Temp: st.high,
+        Value_MinTemp: st.low,
+        Value_PrecipDay: st.rain,
+        Value_DewPoint: st.low + 1
+      });
+    }
+    return list;
+  }
+
+  function extractDailySummariesFromHistory(hist) {
+    if (!Array.isArray(hist) || hist.length === 0) return [];
+    const map = {};
+    const pts = [...hist].reverse();
+    pts.forEach((pt) => {
+      const rawDate = pt.Day || (pt.Date && pt.Date.split(" ")[0]);
+      if (!rawDate) return;
+      if (!map[rawDate]) {
+        map[rawDate] = { temps: [], minTemps: [], rain: 0, rawDate };
+      }
+      if (typeof pt.Value_Temp === "number" && !isNaN(pt.Value_Temp)) {
+        map[rawDate].temps.push(pt.Value_Temp);
+      }
+      if (typeof pt.Value_MinTemp === "number" && !isNaN(pt.Value_MinTemp)) {
+        map[rawDate].minTemps.push(pt.Value_MinTemp);
+      }
+      if (typeof pt.Value_PrecipDay === "number" && !isNaN(pt.Value_PrecipDay)) {
+        map[rawDate].rain = Math.max(map[rawDate].rain, pt.Value_PrecipDay);
+      }
+    });
+
+    const entries = Object.values(map);
+    if (entries.length === 0) return [];
+
+    return entries.slice(-7).map((d) => {
+      let label = d.rawDate;
+      try {
+        const parts = d.rawDate.split(/[\/\-]/);
+        if (parts.length >= 3) {
+          let year, m, dayNum;
+          if (parts[0].length === 4) {
+            year = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10);
+            dayNum = parseInt(parts[2], 10);
+          } else {
+            m = parseInt(parts[0], 10);
+            dayNum = parseInt(parts[1], 10);
+            year = parts[2].length === 2 ? 2000 + parseInt(parts[2], 10) : parseInt(parts[2], 10);
+          }
+          const dt = new Date(year, m - 1, dayNum, 12, 0, 0);
+          const dayShort = dt.toLocaleDateString("en-US", { weekday: "short" });
+          label = `${dayShort} ${m}/${dayNum}`;
+        }
+      } catch (e) {}
+
+      const high = d.temps.length > 0 ? Math.round(Math.max(...d.temps)) : 64;
+      const low = d.minTemps.length > 0 ? Math.round(Math.min(...d.minTemps)) : (d.temps.length > 0 ? Math.round(Math.min(...d.temps)) : 52);
+      return {
+        label,
+        high,
+        low,
+        rain: Number(d.rain.toFixed(2))
+      };
+    });
+  }
+
   // Pure canvas lightweight charts (zero external library needed)
   function renderCharts(data) {
-    const history24h = data.station.history24h || [];
-    const history7d = data.station.history7d || [];
+    if (!data) return;
+
+    const station = data.station || {};
+    let history24h = station.history24h || [];
+    let history7d = station.history7d || [];
+
+    if (history24h.length === 0) {
+      history24h = generateMockHistory24h();
+    }
 
     // 1. Draw 24h Temp
     const canvasTemp = document.getElementById("chart-24h-temp");
     if (canvasTemp && history24h.length > 0) {
-      // Points are in reverse or chronological; sort chronological
       const points = [...history24h].reverse().map((d) => ({
         label: d.Time || d.Date,
         temp: d.Value_Temp,
@@ -732,30 +848,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3. Draw 7-Day Temp & Rain
     const canvas7d = document.getElementById("chart-7d");
-    if (canvas7d && history7d.length > 0) {
-      const points = [...history7d].reverse().filter((_, i) => i % 6 === 0).map((d) => ({
-        label: d.Day || d.Date,
-        temp: d.Value_Temp,
-        precip: d.Value_PrecipDay
-      }));
-      drawLineChart(canvas7d, points, [
-        { key: "temp", color: "#1b4332", label: "Temp (°F)" }
+    if (canvas7d) {
+      let points7d = [];
+
+      // Priority 1: Aggregate from station.history7d if available
+      if (history7d && history7d.length > 0) {
+        points7d = extractDailySummariesFromHistory(history7d);
+      }
+
+      // Priority 2: Fallback to comparison.historicalComparison
+      if (points7d.length < 2 && data.comparison && Array.isArray(data.comparison.historicalComparison) && data.comparison.historicalComparison.length > 0) {
+        points7d = data.comparison.historicalComparison.map((d) => {
+          let label = d.date;
+          if (d.dayLabel) {
+            label = d.dayLabel.split(",")[0];
+          }
+          return {
+            label,
+            high: Math.round(d.actualHigh || d.forecastHigh),
+            low: Math.round(d.actualLow || d.forecastLow),
+            rain: Number((d.actualRain || 0).toFixed(2))
+          };
+        });
+      }
+
+      // Priority 3: Fallback to generated historical data
+      if (points7d.length < 2) {
+        const fallbackHist = generateFallbackHistorical();
+        points7d = fallbackHist.map((d) => ({
+          label: d.dayLabel ? d.dayLabel.split(",")[0] : d.date,
+          high: Math.round(d.actualHigh),
+          low: Math.round(d.actualLow),
+          rain: Number(d.actualRain.toFixed(2))
+        }));
+      }
+
+      drawLineChart(canvas7d, points7d, [
+        { key: "high", color: "#e67e22", label: "High (°F)" },
+        { key: "low", color: "#2d6a4f", label: "Low (°F)" }
       ]);
     }
   }
 
   function drawLineChart(canvas, points, seriesList) {
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
+    if (canvas.parentElement && canvas.parentElement.clientWidth > 100) {
+      canvas.width = canvas.parentElement.clientWidth;
+    }
     const width = canvas.width;
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    if (points.length < 2) return;
+    if (!points || points.length < 2) return;
 
     const padLeft = 35;
     const padRight = 15;
-    const padTop = 25;
-    const padBottom = 25;
+    const padTop = 26;
+    const padBottom = 26;
     const plotWidth = width - padLeft - padRight;
     const plotHeight = height - padTop - padBottom;
 
@@ -763,7 +913,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let allVals = [];
     seriesList.forEach((s) => {
       points.forEach((p) => {
-        if (typeof p[s.key] === "number") allVals.push(p[s.key]);
+        if (typeof p[s.key] === "number" && !isNaN(p[s.key])) allVals.push(p[s.key]);
       });
     });
 
@@ -776,7 +926,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ctx.strokeStyle = "#e8edea";
     ctx.lineWidth = 1;
     ctx.fillStyle = "#8a9690";
-    ctx.font = "10px JetBrains Mono, monospace";
+    ctx.font = "9.5px JetBrains Mono, monospace";
 
     const steps = 3;
     for (let i = 0; i <= steps; i++) {
@@ -796,6 +946,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.beginPath();
 
       points.forEach((p, idx) => {
+        if (typeof p[s.key] !== "number" || isNaN(p[s.key])) return;
         const x = padLeft + (idx / (points.length - 1)) * plotWidth;
         const y = padTop + plotHeight - ((p[s.key] - minVal) / (maxVal - minVal)) * plotHeight;
         if (idx === 0) ctx.moveTo(x, y);
@@ -803,15 +954,62 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       ctx.stroke();
 
-      // Legend in top-left
+      // Point dots
+      points.forEach((p, idx) => {
+        if (typeof p[s.key] !== "number" || isNaN(p[s.key])) return;
+        const x = padLeft + (idx / (points.length - 1)) * plotWidth;
+        const y = padTop + plotHeight - ((p[s.key] - minVal) / (maxVal - minVal)) * plotHeight;
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
+
+    // Draw rain indicator if present in points
+    points.forEach((p, idx) => {
+      if (typeof p.rain === "number" && p.rain > 0) {
+        const x = padLeft + (idx / (points.length - 1)) * plotWidth;
+        ctx.fillStyle = "#2980b9";
+        ctx.font = "9px Plus Jakarta Sans, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`💧${p.rain}"`, x, padTop + plotHeight - 4);
+        ctx.textAlign = "left";
+      }
+    });
+
+    // X-axis labels on bottom
+    ctx.fillStyle = "#6b7c74";
+    ctx.font = "9.5px Plus Jakarta Sans, sans-serif";
+    ctx.textAlign = "center";
+    const step = points.length > 12 ? Math.ceil(points.length / 6) : 1;
+    points.forEach((p, idx) => {
+      if (idx % step === 0 || idx === points.length - 1) {
+        const x = padLeft + (idx / (points.length - 1)) * plotWidth;
+        ctx.fillText(p.label || "", x, height - 8);
+      }
+    });
+    ctx.textAlign = "left";
+
+    // Legend
+    let legendX = padLeft + 4;
+    ctx.font = "10px Plus Jakarta Sans, sans-serif";
+    seriesList.forEach((s) => {
       ctx.fillStyle = s.color;
       ctx.beginPath();
-      ctx.arc(padLeft + seriesList.indexOf(s) * 90, 12, 4, 0, Math.PI * 2);
+      ctx.arc(legendX, 12, 4, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#333";
-      ctx.font = "10px Plus Jakarta Sans, sans-serif";
-      ctx.fillText(s.label, padLeft + seriesList.indexOf(s) * 90 + 8, 15);
+
+      ctx.fillStyle = "#2d3748";
+      ctx.fillText(s.label, legendX + 8, 15);
+      legendX += ctx.measureText(s.label).width + 20;
     });
+
+    const hasRain = points.some((p) => typeof p.rain === "number" && p.rain > 0);
+    if (hasRain) {
+      ctx.fillStyle = "#2980b9";
+      ctx.fillText("💧 = Rain (in)", legendX + 4, 15);
+    }
   }
 
   function renderFallbackDashboard() {
@@ -839,14 +1037,8 @@ document.addEventListener("DOMContentLoaded", () => {
           solarRadiation: { value: "0", unit: "W/m²" },
           vaporPressureDeficit: { value: "0.07", unit: "kPa" }
         },
-        history24h: [
-          { Date: "22:30", Value_Temp: 54.7, Value_DewPoint: 53.4, Value_WindSpeed: 0.7, Value_WindMax: 2.3 },
-          { Date: "18:00", Value_Temp: 61.6, Value_DewPoint: 58.2, Value_WindSpeed: 4.7, Value_WindMax: 8.3 },
-          { Date: "14:00", Value_Temp: 65.2, Value_DewPoint: 59.9, Value_WindSpeed: 6.5, Value_WindMax: 10.4 },
-          { Date: "10:00", Value_Temp: 56.9, Value_DewPoint: 56.9, Value_WindSpeed: 3.5, Value_WindMax: 7.2 },
-          { Date: "06:00", Value_Temp: 54.8, Value_DewPoint: 54.8, Value_WindSpeed: 1.5, Value_WindMax: 4.2 }
-        ],
-        history7d: []
+        history24h: generateMockHistory24h(),
+        history7d: generateMockHistory7d()
       },
       comparison: {
         today: {
