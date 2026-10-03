@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cabrillo Weather</title>
+
+  <!-- PWA & Mobile Web App Meta -->
+  <meta name="description" content="Live weather, station metrics, and forecast comparison for Cabrillo Farm." />
+  <meta name="theme-color" content="#1b4332" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Cabrillo Wx" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
+
+  <!-- Fonts & Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="branding">
+          <span class="brand-icon">🌱</span>
+          <div>
+            <h1 class="app-title">Cabrillo Weather</h1>
+            <p class="station-meta">San Mateo RCD • Half Moon Bay</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="refresh-btn" class="icon-btn" title="Refresh data" aria-label="Refresh">
+            <svg class="refresh-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Status Bar -->
+      <div class="status-bar">
+        <div class="status-item">
+          <span class="status-dot"></span>
+          <span id="last-updated-text">Updated recently</span>
+        </div>
+        <div class="status-item battery-status" id="battery-indicator">
+          <span class="bat-icon">🔋</span>
+          <span id="battery-text">-- V</span>
+        </div>
+      </div>
+
+      <!-- Install App Banner (shown only on mobile if not installed) -->
+      <div id="install-banner" class="install-banner hidden">
+        <div class="install-text">
+          <strong>Install Cabrillo Weather</strong>
+          <span>Add to home screen for 1-tap full-screen access</span>
+        </div>
+        <button id="install-btn" class="install-btn">Install</button>
+        <button id="dismiss-install" class="dismiss-btn">&times;</button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs" role="tablist">
+        <button class="nav-tab active" data-tab="live" role="tab">Current</button>
+        <button class="nav-tab" data-tab="comparison" role="tab">Forecast vs Actual</button>
+        <button class="nav-tab" data-tab="trends" role="tab">24h / 7d Trends</button>
+      </nav>
+    </header>
+
+    <!-- Main Content Sections -->
+    <main class="main-content">
+      <!-- Loading Skeleton / Spinner -->
+      <div id="loading-state" class="loading-state">
+        <div class="spinner"></div>
+        <p>Connecting to Cabrillo station...</p>
+      </div>
+
+      <!-- TAB 1: LIVE CONDITIONS -->
+      <section id="tab-live" class="tab-panel active">
+        <!-- Hero Temperature & Wind Card -->
+        <div class="hero-card">
+          <div class="hero-temp-section">
+            <div class="hero-temp-badge">CURRENT</div>
+            <div class="temp-display">
+              <span id="hero-temp" class="temp-val">--</span>
+              <span class="temp-unit">°F</span>
+            </div>
+            <div class="temp-sub">
+              <span>RH: <strong id="hero-rh">--%</strong></span>
+              <span class="sep">•</span>
+              <span>Dew Pt: <strong id="hero-dew">--°F</strong></span>
+            </div>
+          </div>
+
+          <div class="hero-highlow">
+            <div class="hl-badge high">
+              <span class="hl-label">TODAY'S HIGH</span>
+              <span id="today-high" class="hl-val">--°F</span>
+              <span id="today-high-time" class="hl-time">--</span>
+            </div>
+            <div class="hl-badge low">
+              <span class="hl-label">TODAY'S LOW</span>
+              <span id="today-low" class="hl-val">--°F</span>
+              <span id="today-low-time" class="hl-time">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Glanceable Metric Cards Grid -->
+        <div class="cards-grid">
+          <!-- Wind Card -->
+          <div class="metric-card wind-card">
+            <div class="card-header">
+              <span class="card-icon">💨</span>
+              <span class="card-title">Wind & Spraying</span>
+            </div>
+            <div class="card-body">
+              <div class="primary-metric">
+                <span id="card-wind-speed" class="val">--</span>
+                <span class="unit">mph</span>
+              </div>
+              <div class="secondary-info">
+                <div>Gusts: <strong id="card-wind-gust">-- mph</strong></div>
+                <div>Direction: <strong id="card-wind-dir">--</strong></div>
+                <div>Peak Today: <strong id="card-peak-wind">-- mph</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rain Card -->
+          <div class="metric-card rain-card">
+            <div class="card-header">
+              <span class="card-icon">🌧️</span>
+              <span class="card-title">Precipitation</span>
+            </div>
+            <div class="card-body">
+              <div class="primary-metric">
+                <span id="card-daily-rain" class="val">0.00</span>
+                <span class="unit">In (Today)</span>
+              </div>
+              <div class="secondary-info">
+                <div>This Month: <strong id="card-month-rain">-- In</strong></div>
+                <div>Season Total: <strong id="card-season-rain">-- In</strong></div>
+                <div>Latest: <strong id="card-latest-rain">-- In</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Farm Agronomy Card (ETo, Solar, VP Def) -->
+          <div class="metric-card agronomy-card">
+            <div class="card-header">
+              <span class="card-icon">🌾</span>
+              <span class="card-title">Evapotranspiration & Solar</span>
+            </div>
+            <div class="card-body">
+              <div class="stats-row">
+                <div class="stat-box">
+                  <span class="stat-label">Daily ETo</span>
+                  <span id="card-eto" class="stat-num">-- in</span>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-label">Solar Rad</span>
+                  <span id="card-solar" class="stat-num">-- W/m²</span>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-label">VP Deficit</span>
+                  <span id="card-vpdef" class="stat-num">-- kPa</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: FORECAST VS ACTUAL COMPARISON -->
+      <section id="tab-comparison" class="tab-panel">
+        <div class="section-intro-card">
+          <div class="intro-icon">⚖️</div>
+          <div>
+            <h3>Microclimate vs. Regional Forecast</h3>
+            <p>Half Moon Bay coastal fog and wind can differ significantly from regional forecasts. Here is how your station's actual readings track against the official regional predictions.</p>
+          </div>
+        </div>
+
+        <!-- Today's Scorecard -->
+        <div class="comparison-card">
+          <div class="comparison-header">
+            <h4>Today's Comparison</h4>
+            <span class="badge" id="comp-date-badge">Today</span>
+          </div>
+
+          <div class="comp-table-wrap">
+            <table class="comp-table">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Forecast</th>
+                  <th>Actual Station</th>
+                  <th>Difference</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>High Temp</strong></td>
+                  <td id="comp-fc-high">--°F</td>
+                  <td id="comp-act-high">--°F</td>
+                  <td id="comp-diff-high" class="diff-cell">--</td>
+                </tr>
+                <tr>
+                  <td><strong>Low Temp</strong></td>
+                  <td id="comp-fc-low">--°F</td>
+                  <td id="comp-act-low">--°F</td>
+                  <td id="comp-diff-low" class="diff-cell">--</td>
+                </tr>
+                <tr>
+                  <td><strong>Max Gust</strong></td>
+                  <td id="comp-fc-wind">-- mph</td>
+                  <td id="comp-act-wind">-- mph</td>
+                  <td id="comp-diff-wind" class="diff-cell">--</td>
+                </tr>
+                <tr>
+                  <td><strong>Rain Total</strong></td>
+                  <td id="comp-fc-rain">-- in</td>
+                  <td id="comp-act-rain">-- in</td>
+                  <td id="comp-diff-rain" class="diff-cell">--</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="comp-summary-box" class="comp-summary-box">
+            <span class="icon">💡</span>
+            <span id="comp-summary-text">Analyzing comparison...</span>
+          </div>
+        </div>
+
+        <!-- Upcoming 7-Day Regional Outlook -->
+        <div class="forecast-outlook-card">
+          <div class="outlook-header">
+            <h4>Upcoming 7-Day Forecast (Half Moon Bay Area)</h4>
+          </div>
+          <div id="forecast-days-list" class="forecast-days-list">
+            <!-- Dynamic forecast items injected by app.js -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: TRENDS & HISTORY -->
+      <section id="tab-trends" class="tab-panel">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h4>Last 24 Hours: Temperature & Dew Point</h4>
+            <span class="chart-sub">15-min observations</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="chart-24h-temp" width="360" height="180"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h4>Last 24 Hours: Wind Speed & Gusts</h4>
+            <span class="chart-sub">mph</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="chart-24h-wind" width="360" height="180"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h4>Last 7 Days: Daily Temperatures & Rain</h4>
+            <span class="chart-sub">Daily summaries</span>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas id="chart-7d" width="360" height="180"></canvas>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Data provided by San Mateo Resource Conservation District & Western Weather Group.</p>
+      <p><a href="https://sanmateorcd.westernweathergroup.com/b8cdca5f8cf0483b8c303444d1308c52" target="_blank" rel="noopener">Open Original Station Portal</a></p>
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

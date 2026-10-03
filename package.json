@@ -1,0 +1,12 @@
+{
+  "name": "cabrillo-weather",
+  "version": "1.0.0",
+  "description": "Streamlined farm weather dashboard and forecast comparison for Cabrillo (Half Moon Bay, CA)",
+  "main": "api/weather.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["weather", "pwa", "cabrillo", "half-moon-bay", "agriculture"],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,672 @@
+/* styles.css - Clean, high-contrast, modern agricultural dashboard */
+:root {
+  --primary: #1b4332;
+  --primary-light: #2d6a4f;
+  --accent: #52b788;
+  --accent-soft: #d8f3dc;
+  --bg-app: #f4f6f5;
+  --bg-card: #ffffff;
+  --text-main: #19201d;
+  --text-muted: #5a6660;
+  --border-color: #e2e8e5;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 14px rgba(27, 67, 50, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+  max-width: 540px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+}
+
+/* Header */
+.app-header {
+  background: var(--primary);
+  color: white;
+  padding: 16px 18px 0 18px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.branding {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  font-size: 26px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 6px;
+  display: inline-flex;
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.station-meta {
+  font-size: 11px;
+  color: var(--accent-soft);
+  font-weight: 500;
+}
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+/* Status Bar */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #52b788;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #52b788;
+}
+
+.bat-icon {
+  font-size: 13px;
+}
+
+/* Install Banner */
+.install-banner {
+  background: linear-gradient(135deg, #2d6a4f, #1b4332);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  font-size: 12px;
+}
+
+.install-banner.hidden {
+  display: none;
+}
+
+.install-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.install-text strong {
+  font-size: 13px;
+}
+
+.install-btn {
+  background: white;
+  color: var(--primary);
+  border: none;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.dismiss-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.nav-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.nav-tab.active {
+  color: white;
+}
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+}
+
+/* Main Content */
+.main-content {
+  padding: 16px;
+  flex: 1;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(27, 67, 50, 0.15);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Hero Temperature Card */
+.hero-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hero-temp-badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--primary-light);
+  margin-bottom: 2px;
+}
+
+.temp-display {
+  display: flex;
+  align-items: baseline;
+}
+
+.temp-val {
+  font-size: 58px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-main);
+  letter-spacing: -2px;
+}
+
+.temp-unit {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.temp-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.temp-sub .sep {
+  color: #c0c7c3;
+}
+
+.hero-highlow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hl-badge {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+  min-width: 90px;
+}
+
+.hl-badge.high {
+  background: #fdf2e9;
+  border-left: 3px solid #e67e22;
+}
+
+.hl-badge.low {
+  background: #ebf5fb;
+  border-left: 3px solid #3498db;
+}
+
+.hl-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.hl-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hl-time {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* Metric Cards Grid */
+.cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card-icon {
+  font-size: 18px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.primary-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.primary-metric .val {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--text-main);
+}
+
+.primary-metric .unit {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.secondary-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: right;
+}
+
+.secondary-info strong {
+  color: var(--text-main);
+}
+
+/* Agronomy Card Stats Row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.stat-box {
+  background: var(--bg-app);
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.stat-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Comparison Section */
+.section-intro-card {
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.intro-icon {
+  font-size: 24px;
+}
+
+.section-intro-card h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.section-intro-card p {
+  font-size: 12px;
+  color: #2e7d32;
+  line-height: 1.4;
+}
+
+.comparison-card, .forecast-outlook-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+}
+
+.comparison-header, .outlook-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.comparison-header h4, .outlook-header h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.badge {
+  background: var(--accent-soft);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+/* Comparison Table */
+.comp-table-wrap {
+  overflow-x: auto;
+}
+
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.comp-table th, .comp-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.comp-table th {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.diff-cell {
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.diff-positive {
+  color: #d9534f;
+}
+
+.diff-negative {
+  color: #0275d8;
+}
+
+.diff-neutral {
+  color: var(--text-muted);
+}
+
+.comp-summary-box {
+  background: #fdfaf2;
+  border-left: 3px solid #f0ad4e;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #8a6d3b;
+  line-height: 1.4;
+}
+
+/* 7-Day Forecast Cards */
+.forecast-days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fc-day-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.fc-day-row:last-child {
+  border-bottom: none;
+}
+
+.fc-day-title {
+  font-weight: 600;
+  width: 80px;
+}
+
+.fc-weather-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.fc-temps {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+
+.fc-high {
+  color: var(--text-main);
+}
+
+.fc-low {
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+/* Charts Section */
+.chart-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+}
+
+.chart-header {
+  margin-bottom: 12px;
+}
+
+.chart-header h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.chart-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chart-canvas-container {
+  width: 100%;
+  height: 180px;
+  position: relative;
+}
+
+.chart-canvas-container canvas {
+  width: 100% !important;
+  height: 180px !important;
+}
+
+/* Footer */
+.app-footer {
+  text-align: center;
+  padding: 24px 16px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.app-footer a {
+  color: var(--primary-light);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+}
