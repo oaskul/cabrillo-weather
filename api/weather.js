@@ -3,8 +3,8 @@ const https = require("https");
 const zlib = require("zlib");
 
 const STATION_URL = "https://sanmateorcd.westernweathergroup.com/b8cdca5f8cf0483b8c303444d1308c52";
-// Coordinates for Cabrillo / Half Moon Bay, CA (past 7 days + next 10 days)
-const FORECAST_URL = "https://api.open-meteo.com/v1/forecast?latitude=37.4636&longitude=-122.4286&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&hourly=temperature_2m,precipitation_probability,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch&timezone=America%2FLos_Angeles&past_days=7&forecast_days=10";
+// Coordinates for Cabrillo / Half Moon Bay, CA (past 7 days + next 10 days using NOAA 2.5km National Blend of Models)
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast?latitude=37.4636&longitude=-122.4286&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&hourly=temperature_2m,precipitation_probability,windspeed_10m&models=ncep_nbm_conus&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch&timezone=America%2FLos_Angeles&past_days=7&forecast_days=10";
 
 // Helper to fetch text from a URL with gzip/deflate support and timeout
 function fetchUrl(url, timeoutMs = 20000) {
