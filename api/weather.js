@@ -1,28 +1,75 @@
 // api/weather.js - Serverless function to fetch & merge Cabrillo Station data + Local Forecast
 const https = require("https");
+const zlib = require("zlib");
 
 const STATION_URL = "https://sanmateorcd.westernweathergroup.com/b8cdca5f8cf0483b8c303444d1308c52";
 // Coordinates for Cabrillo / Half Moon Bay, CA (past 7 days + next 10 days)
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast?latitude=37.4636&longitude=-122.4286&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&hourly=temperature_2m,precipitation_probability,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch&timezone=America%2FLos_Angeles&past_days=7&forecast_days=10";
 
-// Helper to fetch text from a URL with timeout
-function fetchUrl(url) {
+// Helper to fetch text from a URL with gzip/deflate support and timeout
+function fetchUrl(url, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { "User-Agent": "CabrilloFarmApp/1.0" } }, (res) => {
-      // Handle redirects if any
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchUrl(res.headers.location).then(resolve).catch(reject);
+    const req = https.get(
+      url,
+      {
+        headers: {
+          "User-Agent": "CabrilloFarmApp/1.0",
+          "Accept-Encoding": "gzip, deflate"
+        }
+      },
+      (res) => {
+        // Handle redirects if any
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return fetchUrl(res.headers.location, timeoutMs).then(resolve).catch(reject);
+        }
+        if (res.statusCode && res.statusCode >= 400) {
+          res.resume();
+          return reject(new Error(`HTTP ${res.statusCode} fetching ${url}`));
+        }
+        let stream = res;
+        const encoding = (res.headers["content-encoding"] || "").toLowerCase();
+        if (encoding === "gzip") {
+          stream = res.pipe(zlib.createGunzip());
+        } else if (encoding === "deflate") {
+          stream = res.pipe(zlib.createInflate());
+        }
+        const chunks = [];
+        stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+        stream.on("error", reject);
       }
-      let body = "";
-      res.on("data", (chunk) => (body += chunk));
-      res.on("end", () => resolve(body));
-    });
+    );
     req.on("error", reject);
-    req.setTimeout(8000, () => {
+    req.setTimeout(timeoutMs, () => {
       req.destroy();
       reject(new Error("Timeout fetching " + url));
     });
   });
+}
+
+// Normalize "10/9/26", "10/11/26", or "2026-10-11" to "YYYY-MM-DD"
+function normalizeDateToISO(rawDateStr) {
+  if (!rawDateStr || typeof rawDateStr !== "string") return null;
+  const clean = rawDateStr.trim().split(" ")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  const parts = clean.split(/[\/\-]/);
+  if (parts.length === 3) {
+    let y, m, d;
+    if (parts[0].length === 4) {
+      y = parseInt(parts[0], 10);
+      m = parseInt(parts[1], 10);
+      d = parseInt(parts[2], 10);
+    } else {
+      m = parseInt(parts[0], 10);
+      d = parseInt(parts[1], 10);
+      y = parseInt(parts[2], 10);
+      if (y < 100) y += 2000;
+    }
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+  }
+  return null;
 }
 
 // Weather code mapping for human readable descriptions & icons
@@ -79,6 +126,44 @@ function parseStationHtml(html) {
     } catch (e) {}
   }
 
+  // Extract official daily summaries from "Last 365 Observations" table (tabular-report-1440)
+  const dailySummaries = [];
+  const table1440Idx = html.indexOf("tabular-report-1440");
+  if (table1440Idx !== -1) {
+    const tbodyIdx = html.indexOf("<tbody>", table1440Idx);
+    if (tbodyIdx !== -1) {
+      const tbodySlice = html.slice(tbodyIdx, tbodyIdx + 80000);
+      const rowMatches = [...tbodySlice.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
+      for (let i = 0; i < Math.min(rowMatches.length, 14); i++) {
+        const cells = [...rowMatches[i][1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) =>
+          m[1].replace(/<[^>]+>/g, "").trim()
+        );
+        if (cells.length >= 13) {
+          const rawDate = cells[0];
+          const isoDate = normalizeDateToISO(rawDate);
+          const maxTemp = parseFloat(cells[1]);
+          const minTemp = parseFloat(cells[3]);
+          const rain = parseFloat(cells[5]);
+          const eto = parseFloat(cells[8]);
+          const avgWind = parseFloat(cells[11]);
+          const maxWind = parseFloat(cells[12]);
+          if (isoDate && !isNaN(maxTemp) && !isNaN(minTemp)) {
+            dailySummaries.push({
+              date: isoDate,
+              rawDate,
+              maxTemp,
+              minTemp,
+              rain: isNaN(rain) ? 0 : rain,
+              eto: isNaN(eto) ? 0 : eto,
+              avgWind: isNaN(avgWind) ? null : avgWind,
+              maxWind: isNaN(maxWind) ? null : maxWind
+            });
+          }
+        }
+      }
+    }
+  }
+
   return {
     stationName: "Half Moon Bay (Cabrillo)",
     organization: "San Mateo Resource Conservation District",
@@ -104,33 +189,50 @@ function parseStationHtml(html) {
       seasonPrecip: extractField("Season Precip"),
       batteryVoltage: extractField("BatVolt")
     },
-    history24h: history24h.slice(0, 48), // last 12 hours of 15-min points for fast rendering
-    history7d: history7d.slice(0, 168)  // 7 days of hourly points
+    history24h: history24h.slice(0, 96), // Full 24 hours of 15-min points (96 observations)
+    history7d: history7d.slice(0, 168),  // 7 days of hourly points
+    dailySummaries
   };
 }
 
-// Extract daily aggregates from station 7-day history if available
-function extractDailyStationHistory(history7d) {
+// Extract daily aggregates from station 7-day history and official daily summary table
+function extractDailyStationHistory(history7d, dailySummaries) {
   const dailyMap = {};
-  if (!Array.isArray(history7d)) return dailyMap;
 
-  history7d.forEach(pt => {
-    let dateStr = pt.Date || pt.Day || pt.Time;
-    if (!dateStr) return;
-    let key = dateStr.split(" ")[0].trim();
-    if (!dailyMap[key]) {
-      dailyMap[key] = {
-        temps: [],
-        winds: [],
-        maxGusts: [],
-        rain: 0
-      };
-    }
-    if (typeof pt.Value_Temp === "number") dailyMap[key].temps.push(pt.Value_Temp);
-    if (typeof pt.Value_WindSpeed === "number") dailyMap[key].winds.push(pt.Value_WindSpeed);
-    if (typeof pt.Value_WindMax === "number") dailyMap[key].maxGusts.push(pt.Value_WindMax);
-    if (typeof pt.Value_PrecipDay === "number") dailyMap[key].rain = Math.max(dailyMap[key].rain, pt.Value_PrecipDay);
-  });
+  if (Array.isArray(history7d)) {
+    history7d.forEach((pt) => {
+      const rawDate = pt.Day || pt.Date || pt.Time;
+      const key = normalizeDateToISO(rawDate);
+      if (!key) return;
+      if (!dailyMap[key]) {
+        dailyMap[key] = {
+          temps: [],
+          winds: [],
+          maxGusts: [],
+          rain: 0
+        };
+      }
+      if (typeof pt.Value_Temp === "number") dailyMap[key].temps.push(pt.Value_Temp);
+      if (typeof pt.Value_MinTemp === "number") dailyMap[key].temps.push(pt.Value_MinTemp);
+      if (typeof pt.Value_WindSpeed === "number") dailyMap[key].winds.push(pt.Value_WindSpeed);
+      if (typeof pt.Value_WindMax === "number") dailyMap[key].maxGusts.push(pt.Value_WindMax);
+      if (typeof pt.Value_PrecipDay === "number") dailyMap[key].rain = Math.max(dailyMap[key].rain, pt.Value_PrecipDay);
+    });
+  }
+
+  // Overlay exact 24h daily summaries from the station logger table if present
+  if (Array.isArray(dailySummaries)) {
+    dailySummaries.forEach((ds) => {
+      if (!ds.date) return;
+      if (!dailyMap[ds.date]) {
+        dailyMap[ds.date] = { temps: [], winds: [], maxGusts: [], rain: 0 };
+      }
+      dailyMap[ds.date].exactHigh = ds.maxTemp;
+      dailyMap[ds.date].exactLow = ds.minTemp;
+      if (ds.maxWind !== null) dailyMap[ds.date].exactWind = ds.maxWind;
+      if (typeof ds.rain === "number") dailyMap[ds.date].exactRain = ds.rain;
+    });
+  }
 
   return dailyMap;
 }
@@ -178,8 +280,8 @@ function buildComparison(station, forecastData) {
   const windDiff = actualToday.maxWind !== null ? (actualToday.maxWind - forecastToday.maxWind).toFixed(1) : null;
   const rainDiff = (actualToday.rain - forecastToday.rain).toFixed(2);
 
-  // Parse station historical map
-  const stationDailyMap = extractDailyStationHistory(station.history7d);
+  // Parse station historical map (normalized to YYYY-MM-DD)
+  const stationDailyMap = extractDailyStationHistory(station.history7d, station.dailySummaries);
 
   // 1. Build Historical Comparison for all days prior to today
   const historicalComparison = [];
@@ -201,13 +303,20 @@ function buildComparison(station, forecastData) {
     let actHigh, actLow, actWind, actRain;
     const stEntry = stationDailyMap[dStr];
 
-    if (stEntry && stEntry.temps.length > 0) {
-      actHigh = Math.max(...stEntry.temps);
-      actLow = Math.min(...stEntry.temps);
-      actWind = stEntry.maxGusts.length > 0 ? Math.max(...stEntry.maxGusts) : (stEntry.winds.length > 0 ? Math.max(...stEntry.winds) : fcWind - 2);
-      actRain = stEntry.rain;
+    if (stEntry && (typeof stEntry.exactHigh === "number" || stEntry.temps.length > 0)) {
+      actHigh = typeof stEntry.exactHigh === "number" ? stEntry.exactHigh : Math.max(...stEntry.temps);
+      actLow = typeof stEntry.exactLow === "number" ? stEntry.exactLow : Math.min(...stEntry.temps);
+      actWind =
+        typeof stEntry.exactWind === "number"
+          ? stEntry.exactWind
+          : stEntry.maxGusts.length > 0
+          ? Math.max(...stEntry.maxGusts)
+          : stEntry.winds.length > 0
+          ? Math.max(...stEntry.winds)
+          : fcWind;
+      actRain = typeof stEntry.exactRain === "number" ? stEntry.exactRain : stEntry.rain;
     } else {
-      // Historical coastal modeling: persistent marine layer dampens highs and moderates lows
+      // Fallback only if station history lacks that date
       const varianceCycle = (i % 3);
       actHigh = Number((fcHigh - (2.0 + varianceCycle * 0.8)).toFixed(1));
       actLow = Number((fcLow + (1.0 + (i % 2) * 0.6)).toFixed(1));
@@ -231,12 +340,14 @@ function buildComparison(station, forecastData) {
     if (dHigh < -2.5) {
       note = `Marine layer kept station ${Math.abs(dHigh)}°F cooler`;
     } else if (dHigh > 2.0) {
-      note = `Inland heating: +${dHigh}°F over forecast`;
+      note = `Station warmer: +${dHigh}°F over forecast`;
     } else {
-      note = `Tracked closely with forecast (diff ${dHigh}°F)`;
+      note = `Tracked closely with forecast (diff ${dHigh > 0 ? "+" : ""}${dHigh}°F)`;
     }
     if (dWind < -2.0) {
       note += `, wind calmer by ${Math.abs(dWind)} mph`;
+    } else if (dWind > 2.5) {
+      note += `, gusts +${dWind} mph stronger`;
     }
 
     let dayLabel = dStr;

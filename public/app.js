@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Fetch data from serverless API
   async function fetchWeatherData() {
     try {
-      const res = await fetch("/api/weather");
+      const res = await fetch("/api/weather", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       weatherData = data;
@@ -120,7 +120,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const current = station.current;
 
     // Header info
-    document.getElementById("last-updated-text").textContent = station.lastReported || "Updated recently";
+    const lastUpdatedEl = document.getElementById("last-updated-text");
+    if (data.isFallback) {
+      lastUpdatedEl.textContent = "Offline Mode (Fallback Data)";
+    } else {
+      lastUpdatedEl.textContent = station.lastReported || "Updated recently";
+    }
     
     // Station Battery (12V Solar Tower Battery)
     const batText = document.getElementById("battery-text");
@@ -810,6 +815,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function formatTime24h(raw) {
+    if (!raw || typeof raw !== "string") return "";
+    const clean = raw.trim().split(" ").pop();
+    if (/^\d{4}$/.test(clean)) {
+      const h = parseInt(clean.slice(0, 2), 10);
+      const m = clean.slice(2, 4);
+      const ampm = h >= 12 ? "p" : "a";
+      const h12 = h % 12 || 12;
+      return m === "00" ? `${h12}${ampm}` : `${h12}:${m}${ampm}`;
+    }
+    if (/^\d{1,2}:\d{2}$/.test(clean)) {
+      const [hStr, m] = clean.split(":");
+      const h = parseInt(hStr, 10);
+      const ampm = h >= 12 ? "p" : "a";
+      const h12 = h % 12 || 12;
+      return m === "00" ? `${h12}${ampm}` : `${h12}:${m}${ampm}`;
+    }
+    return clean;
+  }
+
   // Pure canvas lightweight charts (zero external library needed)
   function renderCharts(data) {
     if (!data) return;
@@ -826,7 +851,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const canvasTemp = document.getElementById("chart-24h-temp");
     if (canvasTemp && history24h.length > 0) {
       const points = [...history24h].reverse().map((d) => ({
-        label: d.Time || d.Date,
+        label: formatTime24h(d.Time || d.Date),
         temp: d.Value_Temp,
         dew: d.Value_DewPoint
       }));
@@ -840,7 +865,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const canvasWind = document.getElementById("chart-24h-wind");
     if (canvasWind && history24h.length > 0) {
       const points = [...history24h].reverse().map((d) => ({
-        label: d.Time || d.Date,
+        label: formatTime24h(d.Time || d.Date),
         speed: d.Value_WindSpeed,
         gust: d.Value_WindMax
       }));
@@ -855,12 +880,34 @@ document.addEventListener("DOMContentLoaded", () => {
     if (canvas7d) {
       let points7d = [];
 
-      // Priority 1: Aggregate from station.history7d if available
-      if (history7d && history7d.length > 0) {
+      // Priority 1: Use official station dailySummaries from daily logger table if available
+      if (Array.isArray(station.dailySummaries) && station.dailySummaries.length >= 2) {
+        points7d = [...station.dailySummaries]
+          .slice(0, 7)
+          .reverse()
+          .map((d) => {
+            let label = d.rawDate || d.date;
+            const parts = (d.date || "").split("-").map(Number);
+            if (parts.length === 3 && parts[0] > 2000) {
+              const dt = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+              const dayShort = dt.toLocaleDateString("en-US", { weekday: "short" });
+              label = `${dayShort} ${parts[1]}/${parts[2]}`;
+            }
+            return {
+              label,
+              high: Math.round(d.maxTemp),
+              low: Math.round(d.minTemp),
+              rain: Number((d.rain || 0).toFixed(2))
+            };
+          });
+      }
+
+      // Priority 2: Aggregate from station.history7d if available
+      if (points7d.length < 2 && history7d && history7d.length > 0) {
         points7d = extractDailySummariesFromHistory(history7d);
       }
 
-      // Priority 2: Fallback to comparison.historicalComparison
+      // Priority 3: Fallback to comparison.historicalComparison
       if (points7d.length < 2 && data.comparison && Array.isArray(data.comparison.historicalComparison) && data.comparison.historicalComparison.length > 0) {
         points7d = data.comparison.historicalComparison.map((d) => {
           let label = d.date;
@@ -876,7 +923,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
 
-      // Priority 3: Fallback to generated historical data
+      // Priority 4: Fallback to generated historical data
       if (points7d.length < 2) {
         const fallbackHist = generateFallbackHistorical();
         points7d = fallbackHist.map((d) => ({
@@ -1018,9 +1065,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderFallbackDashboard() {
     const fallback = {
+      isFallback: true,
       station: {
         stationName: "Half Moon Bay (Cabrillo)",
-        lastReported: "Live Station Readings",
+        lastReported: "Offline Mode (Fallback Data)",
         current: {
           temp: { value: "54.7", unit: "°F" },
           humidity: { value: "95", unit: "%" },
